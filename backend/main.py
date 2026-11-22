@@ -207,6 +207,57 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/profile/{user_id}")
+def user_profile(user_id: str):
+    """
+    Server-side AI profile for a user.
+    In production: trained from trip history (departure times, speed vs average,
+    route preferences). For demo: returns a realistic mock profile per user.
+    """
+    profiles = {
+        "user_1": {
+            "user_id": "user_1",
+            "preferred_departure": "8:15 AM",
+            "usual_route": "A→B→D",
+            "avg_speed_factor": 1.08,   # drives 8% faster than average
+            "trips_logged": 14,
+            "peak_avoidance": True,
+            "insight": "Usually leaves by 8:15. On days with >60% B-D density, arrives 11 min late.",
+        },
+        "user_2": {
+            "user_id": "user_2",
+            "preferred_departure": "7:50 AM",
+            "usual_route": "A→B→E→D",
+            "avg_speed_factor": 0.92,   # drives 8% slower (truck)
+            "trips_logged": 7,
+            "peak_avoidance": False,
+            "insight": "Truck routes consistently avoid C-D due to weight limit. Prefers early departure.",
+        },
+    }
+    profile = profiles.get(user_id)
+    if not profile:
+        return {"user_id": user_id, "trips_logged": 0, "insight": "No trip history yet."}
+    return profile
+
+
+@app.get("/status")
+async def status():
+    """Returns exactly which data source is active right now."""
+    from tomtom_feed import TOMTOM_API_KEY as TT_KEY
+    from camera_feed import AGROS_API_KEY as AG_KEY
+    tt_active = bool(TT_KEY)
+    ag_active = bool(AG_KEY)
+    source = "tomtom" if tt_active else ("agros" if ag_active else "simulated")
+    return {
+        "data_source": source,
+        "tomtom_key_loaded": tt_active,
+        "agros_key_loaded": ag_active,
+        "simulation_fallback": not (tt_active or ag_active),
+        "websocket_clients": len(manager.active),
+        "total_users": len(get_active_users()),
+    }
+
+
 @app.get("/nodes")
 def nodes():
     return node_coords()
